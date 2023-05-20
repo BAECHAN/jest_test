@@ -373,3 +373,265 @@ test("이거 xx 에러 나나요?", () => {
 
 ### 다른 Matcher가 필요한 경우 아래의 링크에서 찾아서 가져다 사용합니다.
 https://jestjs.io/docs/en/expect
+
+<hr />
+
+## 비동기 코드 테스트
+
+비동기 동작을 포함하는 함수를 테스트하는 것을 의미합니다. JavaScript에서 비동기함수는   일반적으로 
+  1. 콜백 함수
+  2. Promise
+  3. async/await  
+등을 사용하여 구현됩니다.
+
+테스트를 위해 ```asyncFn.js``` 파일과 ```asyncFn.test.js``` 파일을 생성합니다.  
+
+먼저 callback 함수로 테스트 하는 방법입니다.
+
+### callback
+
+```
+// asyncFn.js
+const asyncFn = {
+  getName: callback => {
+    const name = "Mike";
+    setTimeout(()=>{
+      callback(name);
+    },3000);
+  }
+}
+
+module.exports = asyncFn;
+
+
+// asyncFn.test.js
+const asyncFn = require("./asyncFn");
+
+test("3초 후에 받아온 이름은 Mike", done => {
+  function callback(name) {
+    expect(name).toEqual("Mike");
+    done();
+  }
+  asyncFn.getName(callback);
+});
+```
+
+위의 코드와 같이 done을 사용하여 비동기처리가 끝났다는 걸 테스트 함수에 인식시켜줍니다.
+
+터미널 결과는 아래와 같으며, 3초정도 소요되었음을 확인할 수 있습니다.
+
+```
+> jest@1.0.0 test
+> jest asyncFn
+
+ PASS  ./asyncFn.test.js
+  √ 3초 후에 받아온 이름은 Mike (3009 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       1 passed, 1 total
+Snapshots:   0 total
+Time:        3.807 s, estimated 6 s
+Ran all test suites matching /asyncFn/i.
+```
+
+만약 API 에러를 감지하고 싶다면 try / catch문으로 감싸줍니다.
+
+```
+test("3초 후에 받아온 이름은 Mike", done => {
+  function callback(name) {
+    try {
+      expect(name).toEqual("Mike");
+      done();
+    } catch(error){
+      done();
+    } 
+  }
+  asyncFn.getName(callback);
+});
+```
+
+
+
+<hr />
+
+#### ※ 주의1. 만약 done을 인자로 받아오지 않아 비동기처리가 끝났다는걸 테스트 함수에서 인식하지 못하는 경우 테스트 실행 시 아래와 같은 경고가 노출됩니다.
+```
+Jest did not exit one second after the test run has completed.
+
+'This usually means that there are asynchronous operations that weren't stopped in your tests. Consider running Jest with `--detectOpenHandles` to troubleshoot this issue.
+```
+
+이를 해결하기 위한 방법으로는 아래와 같으며 우리는 2번 방법을 선택하였습니다.
+
+1. 비동기 작업을 모두 완료하고 Jest가 종료될 때까지 기다리도록 테스트 코드를 수정합니다. 이는 async와 await를 사용하거나, Promise를 반환하는 비동기 작업에 .then()을 사용하여 처리할 수 있습니다.
+
+2. 비동기 작업을 명시적으로 중지시키는 코드를 추가하여 Jest가 테스트가 완료되었음을 감지하도록 합니다. 예를 들어, afterAll 블록 내에서 setTimeout 함수를 사용하여 일정 시간이 지난 후에 done 콜백을 호출하는 방식을 사용할 수 있습니다.
+
+3. Jest를 --detectOpenHandles 옵션과 함께 실행하여 어떤 비동기 핸들이 열려있는지를 검출하고 디버깅할 수 있습니다. 이를 통해 어떤 비동기 작업이 완료되지 않고 남아있는지 식별할 수 있습니다.
+
+<hr />
+
+#### ※ 주의2. done을 인자로 가져왔지만 호출하지 않았을 경우에도 에러가 발생합니다.
+```
+test("3초 후에 받아온 이름은 Mike", done => {
+  function callback(name) {
+    expect(name).toEqual("Mike");
+    //done();
+  }
+  asyncFn.getName(callback);
+});
+
+thrown: "Exceeded timeout of 5000 ms for a test while waiting for `done()` to be called.
+    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
+```
+
+Jest 테스트에서 done() 함수가 호출되기를 기다리는 동안 테스트의 제한 시간(timeout)을 초과했을 때 발생합니다.  
+기본적으로 Jest는 각 테스트의 제한 시간을 5,000ms(5초)로 설정하고 있습니다. 
+
+<hr />
+
+다음은 Promise 로 테스트 하는 방법입니다.
+
+### Promise
+
+```
+// asyncFn.js
+
+const asyncFn = {
+  ...
+  getAge : () => {
+    const age = 30;
+    return new Promise((resolve, reject) => {
+      setTimeout(()=>{
+        resolve(age);
+      },3000);
+    });
+  }
+}
+
+// asyncFn.test.js
+test("3초 후에 받아온 나이는 30", () => {
+  asyncFn.getAge().then(age => {
+    expect(age).toEqual(30);
+  })
+})
+```
+
+위의 경우에도 아까 보았던 경고창이 뜨기 때문에 수정해줍니다.
+
+```
+Jest did not exit one second after the test run has completed.
+
+'This usually means that there are asynchronous operations that weren't stopped in your tests. Consider running Jest with `--detectOpenHandles` to troubleshoot this issue.
+```
+
+return 키워드를 명시하면 정상작동 하게됩니다.
+
+```
+test("3초 후에 받아온 나이는 30", () => {
+  return asyncFn.getAge().then(age => {
+    expect(age).toEqual(30);
+  })
+})
+```
+
+또는 더 간단하게 사용하려면 resolves, rejects Matcher를 사용하면 됩니다.
+
+```
+test("3초 후에 받아온 나이는 30", () => {
+  return expect(asyncFn.getAge()).resolves.toEqual(30);
+})
+```
+
+마찬가지로 에러 핸들링 하려면 에러 발생 시 'error' 라는 메세지를 체크해줍니다.
+
+```
+// asyncFn.js
+const asyncFn = {
+  getName: callback => {
+    const name = "Mike";
+    setTimeout(()=>{
+      callback(name);
+    },3000);
+  },
+  getAge : () => {
+    const age = 30;
+    return new Promise((resolve, reject) => {
+      setTimeout(()=>{
+        //resolve(age);
+        reject("error")
+      },3000);
+    });
+  }
+}
+
+module.exports = asyncFn;
+
+// asyncFn.test.js
+test("3초 후에 에러가납니다.", () => {
+  return expect(asyncFn.getAge()).rejects.toMatch('error');
+})
+```
+
+<hr />
+
+다음은 async/await 로 테스트 하는 방법입니다.
+
+### async / await 
+
+asyncFn.js는 Promise 로 비동기 함수 테스트 처리하는 것과 똑같이 해주시면 되고
+test파일에서 async / await 키워드를 사용하여 처리합니다.
+
+```
+// asyncFn.js
+
+const asyncFn = {
+  ...
+  getAge : () => {
+    const age = 30;
+    return new Promise((resolve, reject) => {
+      setTimeout(()=>{
+        resolve(age);
+      },3000);
+    });
+  }
+}
+
+module.exports = asyncFn;
+
+// asyncFn.test.js
+test("3초 후에 받아온 나이는 30입니다. async", async () => {
+  const age = await asyncFn.getAge();
+  expect(age).toEqual(30);
+})
+```
+
+마찬가지로 에러 핸들링 하려면 에러 발생 시 'error' 라는 메세지를 체크해줍니다.
+
+```
+// asyncFn.js
+
+const asyncFn = {
+  getName: callback => {
+    const name = "Mike";
+    setTimeout(()=>{
+      callback(name);
+    },3000);
+  },
+  getAge : () => {
+    const age = 30;
+    return new Promise((resolve, reject) => {
+      setTimeout(()=>{
+        reject('error');
+      },3000);
+    });
+  }
+}
+
+module.exports = asyncFn;
+
+// asyncFn.test.js
+test("3초 후에 에러가납니다. async", async () => {
+  await expect(asyncFn.getAge()).rejects.toMatch('error');
+})
+```
