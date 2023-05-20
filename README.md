@@ -1,5 +1,9 @@
 # jest 시작하기
 
+# 참고링크
+* https://www.youtube.com/watch?v=TRZ2XdmctSQ
+* https://www.daleseo.com/jest-before-after/
+
 ## 설치 명령어
 
 ```npm install jest --save-dev```
@@ -634,4 +638,621 @@ module.exports = asyncFn;
 test("3초 후에 에러가납니다. async", async () => {
   await expect(asyncFn.getAge()).rejects.toMatch('error');
 })
+```
+
+<hr />
+
+## 테스트 전후 작업
+
+실제 테스트 시 하나의 case만 테스트 하는 것이 아니라 다중 case를 테스트하게 되며 이로 인해 발생하는 문제점을 확인해봅시다.
+
+```
+
+// fn.js
+const fn = {
+  add : (num1,num2) => num1 + num2,
+}
+
+module.exports = fn;
+
+// fnAfterBefore.test.js
+const fn = require('./fnAfterBefore');
+
+let num = 0;
+
+test('0 더하기 1은 1이야',()=>{
+  num = fn.add(num, 1);
+  expect(num).toBe(1) ;
+});
+
+test('0 더하기 2은 2이야',()=>{
+  num = fn.add(num, 2);
+  expect(num).toBe(2) ;
+});
+
+test('0 더하기 3은 3이야',()=>{
+  num = fn.add(num, 3);
+  expect(num).toBe(3) ;
+});
+
+test('0 더하기 4은 4이야',()=>{
+  num = fn.add(num, 4);
+  expect(num).toBe(4) ;
+});
+```
+
+위와 같은 상황에서는 첫번째 test인 "0 더하기 1은 1이야"만 pass되고 나머지 test들은 통과하지 못하게됩니다.
+```
+  √ 0 더하기 1은 1이야 (2 ms)
+  × 0 더하기 2은 2이야 (3 ms)
+  × 0 더하기 3은 3이야 (1 ms)
+  × 0 더하기 4은 4이야 (1 ms)
+```
+
+왜냐하면 num의 결과값이 각각 2,3,4가 나와야하지만 3,6,10이 나오게 되죠
+```
+● 0 더하기 2은 2이야
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 3
+
+  ● 0 더하기 3은 3이야
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 3
+    Received: 6
+
+  ● 0 더하기 4은 4이야
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 4
+    Received: 10
+```
+왜이렇게 나오는지 보려면 num이 초기화가 되지 않고 그대로 사용되고 있기 때문에 이전 num을 그대로 사용했기 때문입니다.
+
+이런 경우에 num을 test할 때마다 초기화 하려면 beforeEach()를 사용합니다.
+
+```
+const fn = require('./fnAfterBefore');
+
+let num = 0;
+
+beforeEach(()=>{
+  num = 0;
+})
+
+test('0 더하기 1은 1이야',()=>{
+  num = fn.add(num, 1);
+  expect(num).toBe(1) ;
+});
+
+test('0 더하기 2은 2이야',()=>{
+  num = fn.add(num, 2);
+  expect(num).toBe(2) ;
+});
+
+test('0 더하기 3은 3이야',()=>{
+  num = fn.add(num, 3);
+  expect(num).toBe(3) ;
+});
+
+test('0 더하기 4은 4이야',()=>{
+  num = fn.add(num, 4);
+  expect(num).toBe(4) ;
+});
+```
+
+각 test함수가 실행하기 전에 beforeEach함수가 실행되어 num=0으로 초기화 해주는 Jest hook입니다.
+```
+  √ 0 더하기 1은 1이야 (2 ms)
+  √ 0 더하기 2은 2이야
+  √ 0 더하기 3은 3이야 (1 ms)
+  √ 0 더하기 4은 4이야
+
+Test Suites: 1 passed, 1 total
+Tests:       4 passed, 4 total
+```
+
+### beforeEach() / afterEach()
+* 테스트가 실행되기 전에 처리해야할 코드가 있다면 beforeEach()를 사용하고,  
+테스트가 실행된 후에 처리해야할 코드가 있다면 afterEach()를 사용합니다.
+
+```
+beforeEach(()=>{
+  num = 0;
+})
+
+afterEach(()=>{
+  num = 0;
+})
+```
+
+만약 beforeEach() 함수와 afterEach() 함수가 오래 걸린다면 어떻게 해야할까요?
+
+test 전에 user DB에 접근해서 user 정보를 가지고 오고,  
+test 후에는 DB Connection을 끊는 작업을 해보도록 하겠습니다.  
+
+각 작업은 0.5초 정도 걸린다고 가정하겠습니다.
+
+```
+
+// fnAfterBefore.js
+
+const fn = {
+  add : (num1,num2) => num1 + num2,
+  connectUserDb : () => {
+    return new Promise(res => {
+      setTimeout(()=>{
+        res({
+          name: "Mike",
+          age: 30,
+          gender: "male",
+        });
+      }, 500);
+    })
+  },
+  disConnectDb: () => {
+    return new Promise(res => {
+      setTimeout(() => {
+        res();
+      }, 500);
+    })
+  }
+}
+
+module.exports = fn;
+
+// fnAfterBefore.test.js
+
+const fn = require('./fnAfterBefore');
+
+let user;
+
+beforeEach(async () => {
+  user = await fn.connectUserDb();
+});
+afterEach(()=>{
+  return fn.disConnectDb();
+})
+
+test("이름은 Mike",() => {
+  expect(user.name).toEqual("Mike");
+})
+
+test("나이는 30", () => {
+  expect(user.age).toEqual(30);
+})
+
+test("성별은 남성", () => {
+  expect(user.gender).toEqual("male");
+})
+
+--------------------------------------------
+
+  √ 이름은 Mike (1016 ms)
+  √ 나이는 30 (1022 ms)
+  √ 성별은 남성 (1005 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        3.976 s, estimated 4 s
+```
+
+### beforeAll() / afterAll()
+* db의 connect와 disconnect는 sql때와 같이 test할 때마다 연결하고 끊고 하는 것이 아니라  
+한번에 가져와서 처리를 다 한다음 마지막에 끊어주는 것이 효율적이기 때문에 이 경우에는 beforeAll()과 afterAll()을 사용합니다.
+
+```
+const fn = require('./fnAfterBefore');
+
+let user;
+
+beforeAll(async () => {
+  user = await fn.connectUserDb();
+});
+afterAll(()=>{
+  return fn.disConnectDb();
+});
+
+test("이름은 Mike",() => {
+  expect(user.name).toEqual("Mike");
+})
+
+test("나이는 30", () => {
+  expect(user.age).toEqual(30);
+})
+
+test("성별은 남성", () => {
+  expect(user.gender).toEqual("male");
+})
+
+// 추가적으로 user는 let 키워드로 선언되어 block scope를 가지고 있지만
+// beforeAll() 함수에서 할당받은 user를 test함수에서 사용가능한건 스코프체인 때문인 걸 잊지말자.
+
+--------------------------------------------
+
+  √ 이름은 Mike (4 ms)
+  √ 나이는 30
+  √ 성별은 남성
+
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        1.968 s, estimated 4 s
+```
+
+beforeEach()와 afterEach()를 사용하였을 때는 
+```Time:        3.976 s, estimated 4 s```
+
+beforeAll()과 afterAll()을 사용하였을 때는
+```Time:        1.968 s, estimated 4 s```
+
+밖에 걸리지 않게 됩니다.  
+<br />
+
+### describe()
+
+만약 접근해야할 DB가 여러개라면 어떻게 할건가요?  
+user db 말고 car db도 접근하는 예시를 봅시다.
+
+```
+// fnAfterBefore.js
+const fn = {
+  add : (num1,num2) => num1 + num2,
+  connectUserDb : () => {
+    return new Promise(res => {
+      setTimeout(()=>{
+        res({
+          name: "Mike",
+          age: 30,
+          gender: "male",
+        });
+      }, 500);
+    })
+  },
+  disConnectDb: () => {
+    return new Promise(res => {
+      setTimeout(() => {
+        res();
+      }, 500);
+    })
+  },
+  connectCarDb : () => {
+    return new Promise(res => {
+      setTimeout(()=>{
+        res({
+          brand: "bmw",
+          name: "z4",
+          color: "red"
+        });
+      }, 500);
+    })
+  },
+  disConnectCarDb: () => {
+    return new Promise(res => {
+      setTimeout(() => {
+        res();
+      }, 500);
+    })
+  }
+}
+
+module.exports = fn;
+
+// fnAfterBefore.test.js
+const fn = require('./fnAfterBefore');
+
+let user;
+
+beforeAll(async () => {
+  user = await fn.connectUserDb();
+});
+afterAll(()=>{
+  return fn.disConnectDb();
+});
+
+test("이름은 Mike",() => {
+  expect(user.name).toEqual("Mike");
+})
+
+test("나이는 30", () => {
+  expect(user.age).toEqual(30);
+})
+
+test("성별은 남성", () => {
+  expect(user.gender).toEqual("male");
+})
+
+describe("Car 관련 DB 작업", () => {
+  let car;
+
+  beforeAll(async () => {
+    car = await fn.connectCarDb();
+  });
+  afterAll(()=>{
+    return fn.disConnectCarDb();
+  });
+  
+  test("이름은 z4",() => {
+    expect(car.name).toEqual("z4");
+  })
+  
+  test("브랜드는 bmw", () => {
+    expect(car.brand).toEqual("bmw");
+  })
+  
+  test("색상은 red", () => {
+    expect(car.color).toEqual("red");
+  })
+})
+
+```
+
+테스트 파일에 많은 수의 테스트 함수가 작성되어 있는 경우, 연관된 테스트 함수들끼리 그룹화해놓으면 코드를 읽기가 좋습니다.  
+다음과 같이 Jest의 describe() 함수를 통해 여러 개의 테스트 함수를 묶는 것이 가능합니다.
+
+```
+  √ 이름은 Mike (8 ms)
+  √ 나이는 30
+  √ 성별은 남성
+  Car 관련 DB 작업
+    √ 이름은 z4
+    √ 브랜드는 bmw (1 ms)
+    √ 색상은 red (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        3.043 s
+```
+
+다음은 describe 함수를 포함한 테스트에서  
+beforeAll()  
+beforeEach()  
+afterEach()  
+afterAll()  
+실행순서를 확인해보겠습니다.
+
+```
+// fnAfterBeforeDescribe.test.js
+
+const fn = require('./fnAfterBefore');
+
+beforeAll(()=>console.log("밖 beforeAll")); // 1
+beforeEach(()=>console.log("밖 beforeEach")); // 2, 6
+afterEach(()=>console.log("밖 afterEach")); // 4, 10
+afterAll(()=>console.log("밖 afterAll")); // 마지막
+
+test("0 + 1 = 1",() => {
+  console.log("밖 test");
+  expect(fn.add(0,1)).toBe(1); // 3
+});
+
+describe("Car 관련 작업", () => {
+  beforeAll(()=>console.log("안 beforeAll")); // 5
+  beforeEach(()=>console.log("안 beforeEach")); // 7
+  afterEach(()=>console.log("안 afterEach")); // 9
+  afterAll(()=>console.log("안 afterAll")); // 마지막 -1
+
+  test("0 + 1 = 1",() => {
+    console.log("안 test");
+    expect(fn.add(0,1)).toBe(1); // 8
+  });
+})
+
+---------------------------------------------------------------
+    밖 beforeAll
+    밖 beforeEach
+    밖 test
+    밖 afterEach
+      안 beforeAll
+    밖 beforeEach
+      안 beforeEach
+      안 test
+      안 afterEach
+    밖 afterEach
+      안 afterAll
+    밖 afterAll
+```
+
+여기서 알아두셔야 하는 부분은 describe 밖에 있는 beforeAll과 afterAll이 맨처음과 끝을 맡고 있고,  
+describe를 실행하더라도 describe 앞뒤로 beforeEach와 afterEach가 감싸고 있음을 알고 있어야합니다.
+
+### Skip / Only
+
+이제 다른 예제를 봅시다.
+
+```
+// fnSkipOnly.test.js
+const fn = require("./fn");
+
+let num = 0;
+
+test("0 더하기 1 은 1", () => {
+  expect(fn.add(num, 1)).toBe(1);
+})
+
+test("0 더하기 2 은 2", () => {
+  expect(fn.add(num, 2)).toBe(2);
+})
+
+test("0 더하기 3 은 3", () => {
+  expect(fn.add(num, 3)).toBe(3);
+})
+
+test("0 더하기 4 은 4", () => {
+  expect(fn.add(num, 4)).toBe(4);
+  num = 10;
+})
+
+test("0 더하기 5 은 5", () => {
+  expect(fn.add(num, 5)).toBe(6);
+})
+-----------------------------------------
+
+  √ 0 더하기 1 은 1 (3 ms)
+  √ 0 더하기 2 은 2
+  √ 0 더하기 3 은 3
+  √ 0 더하기 4 은 4
+  × 0 더하기 5 은 5 (2 ms)
+
+```
+위의 경우와 같이 마지막 테스트인 "0 더하기 5 은 5"는 통과되지 않은 경우가 발생하면
+
+1. 외부의 요인이 문제인지
+2. 해당 테스트 코드가 문제인지 파악해야 합니다.
+
+이런 경우 다른 테스트 코드들은 skip하고 문제가 발생한 test를 확인합니다.
+
+문제가 발생한 test에 only함수를 사용합니다.
+
+```
+test.only("0 더하기 5 은 5", () => {
+  expect(fn.add(num, 5)).toBe(6);
+})
+```
+
+전체 코드는 아래와 같습니다.
+
+
+```
+const fn = require("./fn");
+
+let num = 0;
+
+test("0 더하기 1 은 1", () => {
+  expect(fn.add(num, 1)).toBe(1);
+})
+
+test("0 더하기 2 은 2", () => {
+  expect(fn.add(num, 2)).toBe(2);
+})
+
+test("0 더하기 3 은 3", () => {
+  expect(fn.add(num, 3)).toBe(3);
+})
+
+test("0 더하기 4 은 4", () => {
+  expect(fn.add(num, 4)).toBe(4);
+  num = 10;
+})
+
+test.only("0 더하기 5 은 5", () => {
+  expect(fn.add(num, 5)).toBe(6);
+})
+
+---------------------------------------------
+
+  × 0 더하기 5 은 5 (4 ms)
+  ○ skipped 0 더하기 1 은 1
+  ○ skipped 0 더하기 2 은 2
+  ○ skipped 0 더하기 3 은 3
+  ○ skipped 0 더하기 4 은 4
+
+```
+
+only함수를 선언하여 다른 테스트 함수는 skip처리되었고,  
+only함수를 선언한 테스트 함수를 내부를 확인하였을 때  
+
+1. pass하지 못하면 -> 해당 함수가 문제
+2. pass하였다면 -> 외부 요인이 문제
+
+
+```
+test.only("0 더하기 5 은 5", () => {
+  expect(fn.add(num, 5)).toBe(5);
+})
+```
+수정하고 다시 test하면 pass하게 됩니다.
+
+pass 확인 후 only함수를 풀어주고 다시 테스트 시 문제가 발생하게 되면  
+외부 요인이 문제라는 것을 파악할 수 있습니다.
+
+```
+const fn = require("./fn");
+
+let num = 0;
+
+test("0 더하기 1 은 1", () => {
+  expect(fn.add(num, 1)).toBe(1);
+})
+
+test("0 더하기 2 은 2", () => {
+  expect(fn.add(num, 2)).toBe(2);
+})
+
+test("0 더하기 3 은 3", () => {
+  expect(fn.add(num, 3)).toBe(3);
+})
+
+test("0 더하기 4 은 4", () => {
+  expect(fn.add(num, 4)).toBe(4);
+  num = 10;
+})
+
+test("0 더하기 5 은 5", () => {
+  expect(fn.add(num, 5)).toBe(5);
+})
+
+------------------------------------------
+  √ 0 더하기 1 은 1 (2 ms)
+  √ 0 더하기 2 은 2 (1 ms)
+  √ 0 더하기 3 은 3 (1 ms)
+  √ 0 더하기 4 은 4
+  × 0 더하기 5 은 5 (3 ms)
+```
+
+다시 마지막 test 함수가 pass하지 못하였다면 외부 요인이 문제였기 때문에 다른 test를 체크해보면
+"0 더하기 4 은 4" 에서 num = 10 으로 재할당 된 것을 볼 수 있습니다.
+
+해당 테스트를 당장 수정할 수 없는 경우 skip함수를 처리하면 일단은 건너뛰고 테스트하게 됩니다.
+
+```
+const fn = require("./fn");
+
+let num = 0;
+
+test("0 더하기 1 은 1", () => {
+  expect(fn.add(num, 1)).toBe(1);
+})
+
+test("0 더하기 2 은 2", () => {
+  expect(fn.add(num, 2)).toBe(2);
+})
+
+test("0 더하기 3 은 3", () => {
+  expect(fn.add(num, 3)).toBe(3);
+})
+
+test.skip("0 더하기 4 은 4", () => {
+  expect(fn.add(num, 4)).toBe(4);
+  num = 10;
+})
+
+test("0 더하기 5 은 5", () => {
+  expect(fn.add(num, 5)).toBe(5);
+})
+------------------------------------------
+  √ 0 더하기 1 은 1 (2 ms)
+  √ 0 더하기 2 은 2
+  √ 0 더하기 3 은 3
+  √ 0 더하기 5 은 5 (1 ms)
+  ○ skipped 0 더하기 4 은 4
+
+```
+
+위와 같이 "0 더하기 4 은 4" 테스트는 skip 된 것을 확인할 수 있습니다.
+
+물론 주석처리하셔도 됩니다.
+
+```
+// test.skip("0 더하기 4 은 4", () => {
+//   expect(fn.add(num, 4)).toBe(4);
+//   num = 10;
+// })
 ```
