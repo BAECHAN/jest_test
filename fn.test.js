@@ -36,3 +36,28 @@ test('이름과 나이를 전달받아서 객체를 반환해줘( toEqual versio
   })
 })
 
+test('이름과 나이를 전달받아서 객체를 반환해줘( toStrictEqual version )', () => {
+  expect(fn.makeUser('Mike', 30)).toStrictEqual({
+    name : 'Mike',
+    age : 30
+  })
+})
+
+/** toBeNull */
+
+test("null은 null입니다.", () => {
+  expect(null).toBeNull();
+})
+
+/** 
+ * toBeTruthy 
+ * toBeFalsy
+ * */
+
+test("0은 false 입니다.", () => {
+  expect(fn.add(1,-1)).toBeFalsy();
+})
+
+test("비어있지 않은 문자열은 true 입니다.", () => {
+  expect(fn.add("hello","world")).toBeTruthy();
+})
