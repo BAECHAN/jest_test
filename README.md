@@ -241,3 +241,45 @@ test("비어있지 않은 문자열은 true 입니다.", () => {
 // Received: "helloworld"
 
 ```
+
+### toBeGreaterThan - 크다
+### toBeGreaterThanOrEqual - 크거나 같다
+### toBeLessThan - 작다
+### toBeLessThanOrEqual - 작거나 같다
+
+
+```
+test("ID는 10자 이상여야 합니다.", () => {
+  const id = 'THE_BLACK_ORDER';
+  expect(id.length).toBeGreaterThanOrEqual(10);
+})
+
+test("ID는 10자 이하여야 합니다.", () => {
+  const id = 'THE_BLACK';
+  expect(id.length).toBeLessThanOrEqual(10);
+})
+```
+
+만약 완전히 일치하는지 보려면 toEqual 이나 toBe 사용
+```
+test("비밀번호 4자리여야 합니다.", () => {
+  const pw = "1234";
+  expect(pw.length).toStrictEqual(4);
+})
+```
+
+### toBeCloseTo
+* 몇몇 언어에서는 소수 끼리 연산 시 정확한 계산을 하지 못합니다.  
+때문에 이 경우 toBeCloseTo를 사용하여 근접한지를 테스트합니다.
+
+```
+test("0.1 더하기 0.2는 0.3 입니다.", () => {
+  expect(fn.add(0.1, 0.2)).toBe(0.3)
+})
+
+// Received: 0.30000000000000004
+
+test("0.1 더하기 0.2는 0.3 입니다.", () => {
+  expect(fn.add(0.1, 0.2)).toBeCloseTo(0.3)
+})
+```
