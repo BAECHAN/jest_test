@@ -218,8 +218,7 @@ test("null은 null입니다.", () => {
 })
 ```
 
-### toBeTruthy
-### toBeFalsy
+### toBeTruthy() / toBeFalsy()
 
 * 많은 분들이 아시다시피 느슨한 타입 기반 언어인 자바스크립트는, 자바같은 강한 타입 기반 언어처럼 true와 false가 boolean 타입에 한정되지 않습니다.  
 따라서 숫자 1이 true로 간주되고, 숫자 0이 false로 간주되는 것과 같이 모든 타입의 값들을 true 아니면 false 간주하는 규칙이 있습니다.  
@@ -242,10 +241,10 @@ test("비어있지 않은 문자열은 true 입니다.", () => {
 
 ```
 
-### toBeGreaterThan - 크다
-### toBeGreaterThanOrEqual - 크거나 같다
-### toBeLessThan - 작다
-### toBeLessThanOrEqual - 작거나 같다
+### toBeGreaterThan() - 크다
+### toBeGreaterThanOrEqual() - 크거나 같다
+### toBeLessThan() - 작다
+### toBeLessThanOrEqual() - 작거나 같다
 
 
 ```
@@ -268,7 +267,7 @@ test("비밀번호 4자리여야 합니다.", () => {
 })
 ```
 
-### toBeCloseTo
+### toBeCloseTo()
 * 몇몇 언어에서는 소수 끼리 연산 시 정확한 계산을 하지 못합니다.  
 때문에 이 경우 toBeCloseTo를 사용하여 근접한지를 테스트합니다.
 
@@ -283,3 +282,94 @@ test("0.1 더하기 0.2는 0.3 입니다.", () => {
   expect(fn.add(0.1, 0.2)).toBeCloseTo(0.3)
 })
 ```
+
+### toMatch()
+* 정규식 기반의 테스트가 필요할 떄가 있는데 toMatch() 함수를 사용하면됩니다.
+
+```
+test("Hello World에 H라는 글자가 있는가?", () => {
+  expect("Hello World").toMatch(/H/);
+})
+```
+
+그렇다면 소문자 h 를 찾을 경우에는 어떻게 나올까요?
+
+```
+test("Hello World에 h라는 글자가 있는가?", () => {
+  expect("Hello World").toMatch(/h/);
+})
+
+// Falsy한 결과가 나옵니다.
+```
+
+이러한 경우 대소문자 구분없이 찾을 경우에는 아래와 같이 i 를 붙여줍니다.
+
+```
+test("Hello World에 h라는 글자가 있는가?", () => {
+  expect("Hello World").toMatch(/h/i);
+})
+```
+
+### toHaveLength() / toContain()
+* 배열의 경우에는 배열이 길이를 체크하거나 특정 원소가 존재 여부를 테스트하는 경우가 많습니다.  toHaveLength() 배열의 길이를 체크할 때 쓰이고, toContain() 특정 원소가 배열에 들어있는지를 테스트할 때 쓰입니다.
+
+```
+test("배열의 길이가 3인가?", () => {
+  const userList = ["Tom", "Mike", "Kai"];
+  expect(userList).toHaveLength(3)
+})
+
+test("유저 리스트에 Mike가 있는가?", () => {
+  const user = "Mike";
+  const userList = ["Tom", "Mike", "Kai"];
+  expect(userList).toContain(user);
+})
+```
+
+### toThrow()
+* 에러가 발생했는지 테스트해주는 함수입니다.
+
+```
+// fn.js
+const fn = {
+  add : (num1,num2) => num1 + num2,
+  makeUser : (name, age) => ({ name, age, gender : undefined }),
+  throwErr: () => {
+    throw new Error("xx");
+  }
+}
+
+module.exports = fn;
+
+// fn.test.js
+test("이거 에러 나나요?", () => {
+  expect(() => fn.throwErr()).toThrow();
+})
+```
+
+만약 특정 내용의 에러가 발생하는지 체크하려면 toThrow의 인자로 에러 메세지를 넣어주고 비교하게합니다.
+
+```
+// fn.js
+const fn = {
+  add : (num1,num2) => num1 + num2,
+  makeUser : (name, age) => ({ name, age, gender : undefined }),
+  throwErr: () => {
+    throw new Error("xx");
+  }
+}
+
+module.exports = fn;
+
+// fn.test.js
+test("이거 oo 에러 나나요?", () => {
+  expect(() => fn.throwErr()).toThrow("oo");
+}) // 실패
+
+test("이거 xx 에러 나나요?", () => {
+  expect(() => fn.throwErr()).toThrow("xx");
+}) // 성공
+```
+
+### 다른 Matcher가 필요한 경우 아래의 링크에서 찾아서 가져다 사용합니다.
+https://jestjs.io/docs/en/expect

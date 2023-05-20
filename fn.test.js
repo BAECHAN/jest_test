@@ -95,3 +95,42 @@ test("비밀번호 4자리여야 합니다.", () => {
 test("0.1 더하기 0.2는 0.3 입니다.", () => {
   expect(fn.add(0.1, 0.2)).toBeCloseTo(0.3)
 })
+
+// include 한지 체크할 때는 toMatch를 사용
+
+test("Hello World에 H라는 글자가 있는가?", () => {
+  expect("Hello World").toMatch(/H/);
+})
+
+test("Hello World에 h라는 글자가 있는가?", () => {
+  expect("Hello World").toMatch(/h/i);
+})
+
+// 배열의 요소중에 특정 값이 포함되어있는지 체크하려면 toContain
+
+test("유저 리스트에 Mike가 있는가?", () => {
+  const user = "Mike";
+  const userList = ["Tom", "Mike", "Kai"];
+  expect(userList).toContain(user);
+})
+
+// 배열의 길이를 체크하려면 toHaveLength()
+
+test("배열의 길이가 3인가?", () => {
+  const userList = ["Tom", "Mike", "Kai"];
+  expect(userList).toHaveLength(3)
+})
+
+// 예외 발생하는지 체크하려면 toThrow()
+
+test("이거 에러 나나요?", () => {
+  expect(() => fn.throwErr()).toThrow();
+})
+
+test("이거 oo 에러 나나요?", () => {
+  expect(() => fn.throwErr()).toThrow("oo");
+})
+
+test("이거 xx 에러 나나요?", () => {
+  expect(() => fn.throwErr()).toThrow("xx");
+})
