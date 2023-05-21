@@ -1256,3 +1256,352 @@ test("0 더하기 5 은 5", () => {
 //   num = 10;
 // })
 ```
+
+## Mock 함수  
+
+<b>Mock이란? "모의의" 혹은 "가짜의" 라는 의미를 뜻한다.</b>
+
+<b>Mock up 이라는 말도 자주 사용되는데 이는 "모형", "모의" 라는 의미를 가진다.</b>
+
+즉 mock함수는 <b>"테스트 하기 위해 흉내만 내는 함수"</b>를 의미합니다.
+
+데이터베이스에서 데이터를 삭제하는 코드에 대한 단위 테스트를 작성할 때, 실제 데이터베이스를 사용한다면 여러 가지 문제점이 발생할 수 있습니다.
+
+mocking은 이러한 상황에서 실제 객체인 척하는 가짜 객체를 생성하는 매커니즘을 제공합니다.  
+
+또한 테스트가 실행되는 동안 가짜 객체에 어떤 일들이 발생했는지를 기억하기 때문에 가짜 객체가 내부적으로 어떻게 사용되는지 검증할 수 있습니다.  
+
+결론적으로, mocking을 이용하면 실제 객체를 사용하는 것보다 훨씬 가볍고 빠르게 실행되면서도, 항상 동일한 결과를 내는 테스트를 작성할 수 있습니다.
+
+### jest.fn() 사용법  
+Jset는 가짜 함수(mock functiton)를 생성할 수 있도록 jest.fn() 함수를 제공합니다.
+
+```
+const mockFn = jest.fn();
+```  
+그리고 이 가짜 함수는 일반 자바스크립트 함수와 동일한 방식으로 인자를 넘겨 호출할 수 있습니다.
+```
+mockFn();  
+mockFn(1);  
+mockFn("a");  
+mockFn([1, 2], { a: "b" });
+```
+
+이제 test함수를 호출해보겠습니다.
+
+```
+test('dd',()=>{
+  console.log(mockFn.mock.calls)
+  expect("dd").toBe("dd")
+})
+```
+
+여기서 console.log에 사용된 mockFn.mock.calls에 담긴 정보는
+1. 함수가 몇번 호출되었는가?  
+2. 호출될 때 전달한 인수가 무엇인가?  
+를 알 수 있다.
+
+
+```
+// mockFn.test.js
+
+const mockFn = jest.fn();
+
+mockFn();                 // 첫번째 호출
+mockFn(1);                // 두번째 호출
+
+test("mock함수는 2번 호출됩니다.",()=>{
+  expect(mockFn.mock.calls.length).toBe(2);
+}) 
+
+test("2번째로 호출된 mock함수에 전달된 첫번째 인수는 1입니다.",()=>{
+  expect(mockFn.mock.calls[1][0]).toBe(1);
+})
+```
+
+실제 예시를 한번 보겠습니다.
+
+```
+function forEachAdd1(arr){
+  arr.forEach(num => {
+    // fn(num+1)
+  })
+}
+```
+
+위와 같이 forEach를 돌면서 인자를 1씩 더해주는 함수를 테스트(연산)하려고 할 때  
+1씩 더해주는 함수를 만들어줘야 하지만, 빠르고 간단한 테스트를 위해 mock 함수를 활용해보겠습니다.
+
+```
+const mockFn = jest.fn();
+
+function forEachAdd1(arr){
+  arr.forEach(num => {
+    mockFn(num+1);
+  })
+}
+
+forEachAdd1([10,20,30]);
+
+test("mock함수는 3번 호출됩니다.",()=>{
+  expect(mockFn.mock.calls.length).toBe(3);
+}) 
+
+test("전달된 값은 11,21,31 입니다.", () => {
+  expect(mockFn.mock.calls[0][0]).toBe(11);
+  expect(mockFn.mock.calls[1][0]).toBe(21);
+  expect(mockFn.mock.calls[2][0]).toBe(31);
+})
+```
+
+이번엔 값을 받아 return해주는 함수를 만들어 보겠습니다.
+
+```
+const mockFn = jest.fn(num => num+1);
+
+mockFn(10)
+mockFn(20)
+mockFn(30)
+
+test("함수 호출은 3번 됩니다.", () => {
+  console.log(mockFn.mock.results);
+  expect(mockFn.mock.calls.length).toBe(3);
+})
+
+-------------------------------------------------------------
+
+console.log
+    [
+      { type: 'return', value: 11 },
+      { type: 'return', value: 21 },
+      { type: 'return', value: 31 }
+    ]
+
+```
+
+위와 같이 jest.fn(num => num + 1); 로 직접 mock함수에서 return 처리하여 mock함수 호출 시  
+mockFn.mock.results에 결과가 반환되는 것을 확인할 수 있습니다.
+
+또한 console.log로 찍었던 mockFn.mock.results를 보시면  
+results[인덱스].value 로 값을 확인할 수 있다는 것을 알 수 있습니다.
+
+```
+const mockFn = jest.fn(num => num+1);
+
+mockFn(10)
+mockFn(20)
+mockFn(30)
+
+test("10에서 1 증가한 값이 반환된다.", () => {
+  expect(mockFn.mock.results[0].value).toBe(11);
+})
+test("20에서 1 증가한 값이 반환된다.", () => {
+  expect(mockFn.mock.results[1].value).toBe(21);
+})
+test("30에서 1 증가한 값이 반환된다.", () => {
+  expect(mockFn.mock.results[2].value).toBe(31);
+})
+```
+
+### mockReturnValue() / mockReturnValueOnce()
+
+
+만약 실행할 때 마다 각각 다른 값을 return 해주려면 어떻게 해야할까요?  
+
+mockReturnValue를 사용해주면 됩니다.
+중간에 return값을 바꾸려면 mockReturnValueOnce를 사용해주시면 됩니다.
+
+또한 mockFn을 체이닝 기법을 이용하여 작성할 수 있습니다.
+
+```
+const mockFn = jest.fn();
+
+mockFn
+.mockReturnValueOnce(10)
+.mockReturnValueOnce(20)
+.mockReturnValueOnce(30)
+.mockReturnValue(40);
+
+mockFn()
+mockFn()
+mockFn()
+mockFn()
+
+test('dd',()=>{
+  console.log(mockFn.mock.results);
+  expect("dd").toBe("dd")
+})
+
+-----------------------------------------
+console.log
+    [
+      { type: 'return', value: 10 },
+      { type: 'return', value: 20 },
+      { type: 'return', value: 30 },
+      { type: 'return', value: 40 }
+    ]
+```
+
+이 때 중간에 값을 바꿀 때는 mockReturnValueOnce를 사용해주었지만,  
+마지막에는 중간에 값을 바꿀 필요가 없으니 mockReturnValue를 사용해주었습니다.
+
+이를 활용하여 1~5까지 숫자를 받아서 홀수만 return하는 함수를 만들어보겠습니다.
+
+```
+const mockFn = jest.fn();
+
+[1,2,3,4,5].filter(num => callback(num));
+```
+
+원래는 위의 코드에 사용된 callback이라는 함수에서 홀수를 return 해주는 로직을 작성해야하지만,
+mock함수에서 이를 대신하여 테스트할 수 있습니다.
+
+```
+const mockFn = jest.fn();
+
+mockFn
+.mockReturnValueOnce(true)
+.mockReturnValueOnce(false)
+.mockReturnValueOnce(true)
+.mockReturnValueOnce(false)
+.mockReturnValue(true)
+
+const result = [1,2,3,4,5].filter(num => mockFn(num));
+
+test("홀수는 1,3,5",()=>{
+  expect(result).toStrictEqual([1,3,5]);
+})
+
+```
+
+### mockResolvedValue()
+
+이번엔 비동기 함수를 흉내는 mock함수를 구현해보겠습니다.
+
+이때 mockReturnValue가 아닌 mockResolvedValue를 활용합니다.
+
+```
+const mockFn = jest.fn();
+
+mockFn
+.mockResolvedValue({ name : "Mike"})
+
+test("받아온 이름은 Mike",()=>{
+  mockFn().then(res => {
+    expect(res.name).toBe("Mike")
+  })
+})
+```
+
+then메서드로 응답값을 가져와서 결과를 출력합니다.
+
+### jest.mock()
+
+이번엔 DB에 접근해서 유저를 생성하는 코드를 테스트를 진행해보겠습니다.  
+테스트할 때마다 실제 DB에 접근해서 유저를 insert 하고 다시 rollback 하고 하는 건  
+상당히 번거롭고 부담스럽기 때문에 이럴 때는 mocking module을 사용합니다.
+
+```
+// mockFn.js
+const fn = {
+  add : (num1,num2) => num1 + num2,
+  createUser : (name) => {
+    console.log('실제로 사용자가 생성되었습니다.');
+    return {
+      name
+    }
+  },
+}
+
+module.exports = fn;
+
+// mockFn.test.js
+
+const fn = require('./mockFn');
+
+test("유저 생성",()=>{
+  const user = fn.createUser("Mike");
+  expect(user.name).toBe("Mike");
+})
+--------------------------------------------
+
+  console.log
+    실제로 사용자가 생성되었습니다.
+
+      at Object.log [as createUser] (mockFn.js:4:13)
+
+ PASS  ./mockFn.test.js
+  √ 유저 생성 (26 ms)
+```
+
+이럴 때 실제 유저를 생성할 수 없으므로 jest.mock 함수를 활용하여  
+fn을 mocking module로 만들어주어 실제 함수를 실행시키는 것이 아니라  
+실제 함수를 바탕으로 모의 함수를 만들어 테스트합니다.
+
+```
+jest.mock('./mockFn');
+fn.createUser.mockReturnValue({ name : "Mike" });
+```
+
+위의 코드를 본 코드에 작성하게 되면 아래와 같이 작성할 수 있습니다.
+
+```
+const fn = require('./mockFn');
+
+jest.mock('./mockFn');
+
+fn.createUser.mockReturnValue({ name : "Mike" });
+
+test("유저 생성",()=>{
+  const user = fn.createUser("Mike");
+  expect(user.name).toBe("Mike");
+})
+
+--------------------------------------------------------
+ PASS  ./mockFn.test.js
+  √ 유저 생성 (2 ms)
+```
+
+위 코드의 결과를 보면 아래 찍혔던 console.log가 보이지 않습니다.  
+이를 통해 실제 함수가 실행되는 것이 아니라 mock 함수가 실행되었다는 것을 확인할 수 있습니다.
+
+### toBeCalled() / toBeCalledTimes() / toBeCalledWith() / lastCalledWith()
+
+### toBeCalled()
+* 한번이라도 호출되었으면 pass
+
+### toBeCalledTimes()
+* 정확한 호출 횟수를 체크합니다.
+
+### toBeCalledWith()
+* 인수로 어떤 값을 받았는지 체크합니다.
+
+### lastCalledWith()
+* 마지막으로 실행된 함수의 인수를 체크합니다.
+
+
+```
+const mockFn = jest.fn();
+
+mockFn(10, 20);
+mockFn();
+mockFn(30, 40);
+
+test("한번 이상 호출?", () => {
+  expect(mockFn).toBeCalled();
+});
+
+test("정확히 세번 호출?", () => {
+  expect(mockFn).toBeCalledTimes(3);
+});
+
+test("10이랑 20을 전달받은 함수가 있는가?", () => {
+  expect(mockFn).toBeCalledWith(10, 20);
+  // expect(mockFn).toBeCalledWith(30, 40); // 이거도 통과됩니다.
+});
+
+test("마지막 함수는 30이랑 40을 받았는가?", () => {
+  expect(mockFn).lastCalledWith(30, 40);
+  // expect(mockFn).lastCalledWith(10, 20); // 이거는 통과가 안됩니다.
+});
+```
